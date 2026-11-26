@@ -1,0 +1,9 @@
+{
+  "name": "yandex-eda-bonus-calculator",
+  "version": "1.0.0",
+  "private": true,
+  "description": "Калькулятор бонуса курьера Яндекс Еды с прогнозом погоды",
+  "scripts": {
+    "start": "node server.js"
+  }
+}

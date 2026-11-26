@@ -1,0 +1,259 @@
+<!doctype html>
+<html lang="ru" data-theme="light">
+<head>
+  <meta charset="utf-8">
+  <meta name="viewport" content="width=device-width, initial-scale=1">
+  <meta name="description" content="Калькулятор бонуса курьера Яндекс Еды: время на выполнение цели, заработок и реальная ставка в час. Погода на выбранные даты в Зональной Станции.">
+  <meta name="theme-color" content="#f5f5f7">
+  <title>Бонус — калькулятор для курьера</title>
+  <link rel="icon" href="favicon.svg" type="image/svg+xml">
+  <link rel="stylesheet" href="styles.css">
+</head>
+<body>
+  <svg class="icon-sprite" aria-hidden="true">
+    <symbol id="icon-bolt" viewBox="0 0 24 24">
+      <path d="M13.4 2.2 4.8 13.1c-.4.5 0 1.3.6 1.3h5.3l-1.2 7.2c-.1.7.8 1.1 1.2.5l8.6-10.9c.4-.5 0-1.3-.6-1.3h-5.3l1.2-7.2c.1-.7-.8-1.1-1.2-.5Z" fill="currentColor"/>
+    </symbol>
+    <symbol id="icon-pin" viewBox="0 0 24 24">
+      <path d="M12 21s7-5.1 7-11a7 7 0 1 0-14 0c0 5.9 7 11 7 11Z" fill="none" stroke="currentColor" stroke-width="1.8"/>
+      <circle cx="12" cy="10" r="2.4" fill="none" stroke="currentColor" stroke-width="1.8"/>
+    </symbol>
+    <symbol id="icon-sun" viewBox="0 0 24 24">
+      <circle cx="12" cy="12" r="4.2" fill="none" stroke="currentColor" stroke-width="1.8"/>
+      <path d="M12 2.2v2.3M12 19.5v2.3M2.2 12h2.3M19.5 12h2.3M5.1 5.1l1.6 1.6M17.3 17.3l1.6 1.6M18.9 5.1l-1.6 1.6M6.7 17.3l-1.6 1.6" fill="none" stroke="currentColor" stroke-width="1.8" stroke-linecap="round"/>
+    </symbol>
+    <symbol id="icon-moon" viewBox="0 0 24 24">
+      <path d="M20.4 14.2A8.6 8.6 0 0 1 9.8 3.6 8.7 8.7 0 1 0 20.4 14.2Z" fill="none" stroke="currentColor" stroke-width="1.8" stroke-linejoin="round"/>
+    </symbol>
+    <symbol id="icon-chevron" viewBox="0 0 24 24">
+      <path d="m6.5 9.2 5.5 5.5 5.5-5.5" fill="none" stroke="currentColor" stroke-width="1.8" stroke-linecap="round" stroke-linejoin="round"/>
+    </symbol>
+    <symbol id="icon-wind" viewBox="0 0 24 24">
+      <path d="M3 8h10.2a2.8 2.8 0 1 0-2.8-2.8M3 12h15.2a2.8 2.8 0 1 1-2.8 2.8M3 16h7.2a2.4 2.4 0 1 1-2.4 2.4" fill="none" stroke="currentColor" stroke-width="1.7" stroke-linecap="round"/>
+    </symbol>
+    <symbol id="icon-drop" viewBox="0 0 24 24">
+      <path d="M12 3.2s5.7 5.4 5.7 10a5.7 5.7 0 0 1-11.4 0c0-4.6 5.7-10 5.7-10Z" fill="none" stroke="currentColor" stroke-width="1.7" stroke-linejoin="round"/>
+    </symbol>
+    <symbol id="icon-refresh" viewBox="0 0 24 24">
+      <path d="M20 11a8 8 0 1 0-2.3 6.4M20 4.5V11h-6.5" fill="none" stroke="currentColor" stroke-width="1.8" stroke-linecap="round" stroke-linejoin="round"/>
+    </symbol>
+    <symbol id="icon-clock" viewBox="0 0 24 24">
+      <circle cx="12" cy="12" r="8.5" fill="none" stroke="currentColor" stroke-width="1.7"/>
+      <path d="M12 7.2V12l3.1 1.9" fill="none" stroke="currentColor" stroke-width="1.7" stroke-linecap="round" stroke-linejoin="round"/>
+    </symbol>
+  </svg>
+
+  <header class="site-header">
+    <div class="shell site-header__inner">
+      <a class="brand" href="#top" title="Наверх">
+        <span class="brand__mark">
+          <svg class="icon" aria-hidden="true"><use href="#icon-bolt"></use></svg>
+        </span>
+        <span class="brand__text">
+          <span class="brand__name">Бонус</span>
+          <span class="brand__meta">Яндекс Еда</span>
+        </span>
+      </a>
+      <div class="header-actions">
+        <span class="location-pill">
+          <svg class="icon icon--sm" aria-hidden="true"><use href="#icon-pin"></use></svg>
+          Зональная Станция
+        </span>
+        <button class="icon-button" id="theme-toggle" type="button" aria-label="Включить тёмную тему" title="Тёмная тема">
+          <svg class="icon theme-toggle__moon" aria-hidden="true"><use href="#icon-moon"></use></svg>
+          <svg class="icon theme-toggle__sun" aria-hidden="true"><use href="#icon-sun"></use></svg>
+        </button>
+      </div>
+    </div>
+  </header>
+
+  <main class="shell" id="top">
+    <section class="intro">
+      <p class="eyebrow"><span class="eyebrow__dot"></span>Планирование смены</p>
+      <h1>Сколько стоит<br><span class="text-gradient">ваш бонус?</span></h1>
+      <p class="intro__lead">Введите цель и срок — покажем, сколько часов придётся работать, сколько выйдет за период и какая получится ставка в час. Внизу — погода на каждый день.</p>
+    </section>
+
+    <div class="workspace">
+      <section class="card form-card" aria-labelledby="form-title">
+        <div class="card__header">
+          <div>
+            <h2 id="form-title">Параметры</h2>
+            <p>Цель, срок и сумма бонуса</p>
+          </div>
+          <span class="badge" id="assumption-badge">≈ 1,5/ч</span>
+        </div>
+
+        <form id="calc-form" novalidate>
+          <fieldset class="field-group">
+            <legend>Период</legend>
+            <div class="date-range">
+              <label class="field">
+                <span class="field__label">Начало</span>
+                <span class="field__control">
+                  <input type="date" id="start-date" name="start" autocomplete="off" required>
+                </span>
+              </label>
+              <span class="date-range__arrow" aria-hidden="true">→</span>
+              <label class="field">
+                <span class="field__label">Конец</span>
+                <span class="field__control">
+                  <input type="date" id="end-date" name="end" autocomplete="off" required>
+                </span>
+              </label>
+            </div>
+            <div class="quick-ranges" id="quick-ranges" role="group" aria-label="Быстрый выбор периода">
+              <button type="button" data-range="today">Сегодня</button>
+              <button type="button" data-range="3">3 дня</button>
+              <button type="button" data-range="7">Неделя</button>
+              <button type="button" data-range="weekend">Выходные</button>
+            </div>
+            <p class="form-hint" id="form-hint" role="status" hidden></p>
+          </fieldset>
+
+          <div class="fields-grid">
+            <label class="field">
+              <span class="field__label">Нужно заказов</span>
+              <span class="field__control">
+                <input type="number" id="orders" name="orders" inputmode="numeric" min="1" step="1" value="100" required>
+                <span class="field__suffix">заказов</span>
+              </span>
+            </label>
+            <label class="field">
+              <span class="field__label">Бонус</span>
+              <span class="field__control">
+                <input type="number" id="bonus" name="bonus" inputmode="numeric" min="0" step="100" value="5000" required>
+                <span class="field__suffix">₽</span>
+              </span>
+            </label>
+          </div>
+
+          <details class="assumptions">
+            <summary>
+              <span>Допущения расчёта</span>
+              <span class="assumptions__values" id="assumptions-summary">1,5 заказа/ч · 200 ₽/ч</span>
+              <svg class="icon assumptions__chevron" aria-hidden="true"><use href="#icon-chevron"></use></svg>
+            </summary>
+            <div class="assumptions__body">
+              <div class="fields-grid">
+                <label class="field field--compact">
+                  <span class="field__label">Заказов в час</span>
+                  <span class="field__control">
+                    <input type="number" id="orders-per-hour" name="ordersPerHour" inputmode="decimal" min="0.1" step="0.1" value="1.5">
+                    <span class="field__suffix">/ч</span>
+                  </span>
+                </label>
+                <label class="field field--compact">
+                  <span class="field__label">Ставка</span>
+                  <span class="field__control">
+                    <input type="number" id="base-rate" name="baseRate" inputmode="numeric" min="0" step="10" value="200">
+                    <span class="field__suffix">₽/ч</span>
+                  </span>
+                </label>
+              </div>
+              <p class="hint">Средние значения. Измените их, если ваша статистика отличается.</p>
+            </div>
+          </details>
+
+          <p class="form-error" id="form-error" role="status" hidden></p>
+        </form>
+      </section>
+
+      <aside class="card result-card" id="result-card" aria-labelledby="result-title" aria-live="polite">
+        <div class="card__header card__header--result">
+          <div>
+            <h2 id="result-title">Результат</h2>
+            <p id="result-period">Выберите период</p>
+          </div>
+          <span class="live-badge"><span class="live-badge__dot"></span>мгновенно</span>
+        </div>
+
+        <div class="hero-rate">
+          <span class="hero-rate__label">Реальная ставка</span>
+          <div class="hero-rate__value">
+            <span id="effective-rate">—</span><span class="hero-rate__unit">₽/ч</span>
+          </div>
+          <div class="rate-delta" id="rate-delta" hidden></div>
+        </div>
+
+        <div class="payout">
+          <div class="payout__row">
+            <span>Итого за период</span>
+            <strong id="total-payout">—</strong>
+          </div>
+          <div class="split-bar" id="split-bar" role="img" aria-label="Состав выплаты">
+            <span class="split-bar__base" id="base-bar"></span>
+            <span class="split-bar__bonus" id="bonus-bar"></span>
+          </div>
+          <div class="split-legend">
+            <span><i class="dot dot--base"></i>Базовая оплата <b id="base-pay">—</b></span>
+            <span><i class="dot dot--bonus"></i>Бонус <b id="bonus-pay">—</b></span>
+          </div>
+        </div>
+
+        <div class="stats-grid">
+          <div class="stat">
+            <span class="stat__label">Время на бонус</span>
+            <strong id="hours-total">—</strong>
+          </div>
+          <div class="stat">
+            <span class="stat__label">В день</span>
+            <strong id="hours-per-day">—</strong>
+          </div>
+          <div class="stat">
+            <span class="stat__label">Заказов в день</span>
+            <strong id="orders-per-day">—</strong>
+          </div>
+          <div class="stat">
+            <span class="stat__label">Смен по 8 ч</span>
+            <strong id="shifts">—</strong>
+          </div>
+        </div>
+
+        <div class="insight" id="insight" data-tone="neutral">
+          <span class="insight__dot" aria-hidden="true"></span>
+          <p id="insight-text">Заполните параметры, чтобы увидеть расчёт.</p>
+        </div>
+
+        <p class="result-note">Расчёт предполагает, что бонус будет выполнен полностью. Совет: заложите 5–10% заказов сверх цели, чтобы не сорвать его из-за медленного дня.</p>
+      </aside>
+    </div>
+
+    <section class="weather-section" id="weather" aria-labelledby="weather-title">
+      <div class="section-heading">
+        <div class="section-heading__main">
+          <p class="eyebrow">Прогноз</p>
+          <h2 id="weather-title">Погода на период</h2>
+          <p class="section-heading__sub" id="weather-subtitle">Утро 9:00 · день 14:00 · вечер 19:00</p>
+          <p class="weather-summary" id="weather-summary" hidden></p>
+        </div>
+        <div class="weather-meta">
+          <span class="location-pill location-pill--weather">
+            <svg class="icon icon--sm" aria-hidden="true"><use href="#icon-pin"></use></svg>
+            Зональная Станция
+          </span>
+          <span class="weather-updated" id="weather-updated" hidden></span>
+        </div>
+      </div>
+
+      <div class="weather-grid" id="weather-grid" aria-live="polite"></div>
+
+      <p class="weather-source">
+        Данные: <a href="https://open-meteo.com/" target="_blank" rel="noopener noreferrer">Open-Meteo</a>
+        · прогноз доступен на 16 дней вперёд
+      </p>
+    </section>
+  </main>
+
+  <footer class="site-footer shell">
+    <p>Для личного планирования. Не официальный сервис Яндекс Еды.</p>
+    <p><a href="https://open-meteo.com/" target="_blank" rel="noopener noreferrer">Погодные данные Open-Meteo</a></p>
+  </footer>
+
+  <noscript>
+    <div class="noscript">Для расчёта и прогноза нужен JavaScript.</div>
+  </noscript>
+
+  <script src="app.js" defer></script>
+</body>
+</html>
