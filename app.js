@@ -10,6 +10,9 @@
 
   const STORAGE_KEY = 'bonus-calculator:v2';
   const THEME_KEY = 'bonus-calculator:theme';
+  const DAILY_LIMIT = 12;
+  const DEFAULT_DAILY_HOURS = 8;
+  const DEFAULT_SHIFTS_TEXT = '338,76 3\n708,33 3\n2521,14 11\n736,89 5\n693,87 3';
   const DEFAULT_STATE = {
     orders: 100,
     bonus: 5000,
@@ -57,6 +60,11 @@
     formError: $('form-error'),
     formHint: $('form-hint'),
     quickRanges: $('quick-ranges'),
+    dailyPresets: $('daily-presets'),
+    dailyList: $('daily-list'),
+    dailyTotal: $('daily-total'),
+    dailyRequired: $('daily-required'),
+    dailyStatus: $('daily-status'),
     resultCard: $('result-card'),
     resultPeriod: $('result-period'),
     effectiveRate: $('effective-rate'),
@@ -72,7 +80,18 @@
     ordersPerDay: $('orders-per-day'),
     shifts: $('shifts'),
     insight: $('insight'),
+    insightTitle: $('insight-title'),
+    insightBadge: $('insight-badge'),
+    insightBar: $('insight-bar'),
+    insightFill: $('insight-fill'),
     insightText: $('insight-text'),
+    shiftsData: $('shifts-data'),
+    shiftsCount: $('shifts-count'),
+    avgEarnings: $('avg-earnings'),
+    avgOrders: $('avg-orders'),
+    shiftsTotal: $('shifts-total'),
+    applyStats: $('apply-stats'),
+    statsHint: $('stats-hint'),
     weatherSubtitle: $('weather-subtitle'),
     weatherSummary: $('weather-summary'),
     weatherUpdated: $('weather-updated'),
@@ -82,6 +101,8 @@
   let today = todayISO();
   let hintTimer = null;
   let themeTimer = null;
+  let dailyHours = new Map();
+  let lastDailyKey = null;
   let weatherDebounceTimer = null;
   let weatherAbort = null;
   let weatherRequestToken = 0;
@@ -99,6 +120,9 @@
     updateDateBounds();
     bindFormEvents();
     bindQuickRanges();
+    bindDailyEvents();
+    bindShiftsEvents();
+    renderShiftsStats();
     refresh({ initial: true });
   }
 
@@ -196,10 +220,30 @@
       validNumber(saved && saved.ordersPerHour, DEFAULT_STATE.ordersPerHour, 0.1, 100)
     );
     els.baseRate.value = String(validNumber(saved && saved.baseRate, DEFAULT_STATE.baseRate, 0, 100000));
+
+    dailyHours.clear();
+    if (saved && saved.dailyHours && typeof saved.dailyHours === 'object') {
+      Object.entries(saved.dailyHours).forEach(([date, value]) => {
+        if (!isValidISODate(date)) return;
+        const hours = Number(value);
+        if (Number.isFinite(hours)) {
+          dailyHours.set(date, Math.min(DAILY_LIMIT, Math.max(0, hours)));
+        }
+      });
+    }
+
+    if (els.shiftsData) {
+      els.shiftsData.value =
+        saved && typeof saved.shiftsText === 'string' ? saved.shiftsText : DEFAULT_SHIFTS_TEXT;
+    }
   }
 
   function saveState(values) {
     if (!isValidISODate(values.start) || !isValidISODate(values.end) || values.end < values.start) return;
+    const daily = {};
+    dateList(values.start, values.end).forEach((date) => {
+      daily[date] = dailyHours.has(date) ? dailyHours.get(date) : DEFAULT_DAILY_HOURS;
+    });
     const payload = {
       start: values.start,
       end: values.end,
@@ -207,6 +251,8 @@
       bonus: Number.isFinite(values.bonus) ? values.bonus : null,
       ordersPerHour: values.ordersPerHour,
       baseRate: values.baseRate,
+      dailyHours: daily,
+      shiftsText: els.shiftsData ? els.shiftsData.value : DEFAULT_SHIFTS_TEXT,
     };
     storageSet(STORAGE_KEY, JSON.stringify(payload));
   }
@@ -397,6 +443,8 @@
 
   function refresh(options = {}) {
     const values = readForm();
+    const dates = dateList(values.start, values.end);
+    syncDailySchedule(dates);
     updateAssumptions(values);
     updateQuickRangeState(values);
     const errors = validate(values);
@@ -469,6 +517,165 @@
       els.start.value = range.start;
       els.end.value = range.end;
       updateDateBounds();
+      refresh();
+    });
+  }
+
+  function currentDates() {
+    return dateList(els.start.value, els.end.value);
+  }
+
+  function ensureDailyHours(dates) {
+    dates.forEach((date) => {
+      if (!dailyHours.has(date)) dailyHours.set(date, DEFAULT_DAILY_HOURS);
+      const value = dailyHours.get(date);
+      if (!Number.isFinite(value) || value < 0 || value > DAILY_LIMIT) {
+        dailyHours.set(date, DEFAULT_DAILY_HOURS);
+      }
+    });
+  }
+
+  function syncDailySchedule(dates) {
+    ensureDailyHours(dates);
+    const key = dates.join('|');
+    if (key !== lastDailyKey) {
+      lastDailyKey = key;
+      renderDailyList(dates);
+    }
+    updateDailyTotal(dates);
+  }
+
+  function renderDailyList(dates) {
+    if (!dates.length) {
+      els.dailyList.innerHTML = '<p class="daily-empty">Выберите корректный период.</p>';
+      return;
+    }
+
+    els.dailyList.innerHTML = dates
+      .map((date) => {
+        const parsed = parseISODate(date);
+        const hours = dailyHours.get(date) ?? DEFAULT_DAILY_HOURS;
+        const day = parsed ? parsed.getUTCDate() : '';
+        const month = parsed ? MONTHS_GENITIVE[parsed.getUTCMonth()] : '';
+        return `<label class="day-row${hours === 0 ? ' is-off' : ''}" data-date="${date}">
+          <span class="day-row__date"><strong>${day}</strong> ${month}</span>
+          <span class="day-row__weekday">${formatWeekday(date)}</span>
+          <span class="day-row__control">
+            <input type="number" min="0" max="${DAILY_LIMIT}" step="0.5" inputmode="decimal" value="${formatInputHours(hours)}" data-day-input="${date}" aria-label="Часы на ${formatFullDate(date)}">
+            <span class="day-row__unit">ч</span>
+          </span>
+        </label>`;
+      })
+      .join('');
+  }
+
+  function formatInputHours(value) {
+    return Number.isInteger(value) ? String(value) : String(value);
+  }
+
+  function updateDailyTotal(dates) {
+    if (!dates.length) {
+      els.dailyTotal.textContent = '—';
+      els.dailyRequired.textContent = '—';
+      els.dailyStatus.textContent = '';
+      els.dailyStatus.className = 'daily-total__status';
+      return;
+    }
+
+    const total = dates.reduce(
+      (sum, date) => sum + (dailyHours.get(date) ?? DEFAULT_DAILY_HOURS),
+      0
+    );
+    const values = readForm();
+    const required =
+      Number.isFinite(values.orders) && values.orders > 0
+        ? values.orders / values.ordersPerHour
+        : NaN;
+
+    els.dailyTotal.textContent = `${formatHours(total)} ч`;
+    els.dailyRequired.textContent = Number.isFinite(required) ? `${formatHours(required)} ч` : '—';
+
+    if (!Number.isFinite(required)) {
+      els.dailyStatus.textContent = '';
+      els.dailyStatus.className = 'daily-total__status';
+      return;
+    }
+
+    if (total <= 0) {
+      els.dailyStatus.textContent = 'Укажите часы';
+      els.dailyStatus.className = 'daily-total__status';
+      return;
+    }
+
+    const diff = total - required;
+    if (diff >= -0.05) {
+      els.dailyStatus.textContent =
+        diff > 0.05 ? `Успеваете · запас ${formatHours(diff)} ч` : 'Успеваете';
+      els.dailyStatus.className = 'daily-total__status is-success';
+    } else {
+      els.dailyStatus.textContent = `Не хватает ${formatHours(Math.abs(diff))} ч`;
+      els.dailyStatus.className = 'daily-total__status is-danger';
+    }
+  }
+
+  function bindDailyEvents() {
+    els.dailyPresets.addEventListener('click', (event) => {
+      const button = event.target.closest('button[data-hours]');
+      if (!button) return;
+      const hours = Number(button.dataset.hours);
+      if (!Number.isFinite(hours)) return;
+
+      const dates = currentDates();
+      dates.forEach((date) => dailyHours.set(date, hours));
+      els.dailyList.querySelectorAll('input[data-day-input]').forEach((input) => {
+        input.value = formatInputHours(hours);
+        const row = input.closest('.day-row');
+        if (row) row.classList.toggle('is-off', hours === 0);
+      });
+      updateDailyTotal(dates);
+      refresh();
+    });
+
+    els.dailyList.addEventListener('input', (event) => {
+      const input = event.target.closest('input[data-day-input]');
+      if (!input) return;
+      const date = input.dataset.dayInput;
+      if (!isValidISODate(date) || input.value.trim() === '') return;
+
+      let hours = Number(input.value.replace(',', '.'));
+      if (!Number.isFinite(hours)) return;
+
+      if (hours > DAILY_LIMIT) {
+        hours = DAILY_LIMIT;
+        input.value = String(DAILY_LIMIT);
+        showHint('Максимум 12 ч в день.');
+      }
+      if (hours < 0) {
+        hours = 0;
+        input.value = '0';
+      }
+
+      dailyHours.set(date, hours);
+      const row = input.closest('.day-row');
+      if (row) row.classList.toggle('is-off', hours === 0);
+      updateDailyTotal(currentDates());
+      refresh();
+    });
+
+    els.dailyList.addEventListener('change', (event) => {
+      const input = event.target.closest('input[data-day-input]');
+      if (!input) return;
+      const date = input.dataset.dayInput;
+      if (!isValidISODate(date)) return;
+
+      let hours = Number(input.value.replace(',', '.'));
+      if (!Number.isFinite(hours)) hours = 0;
+      hours = Math.min(DAILY_LIMIT, Math.max(0, hours));
+      input.value = formatInputHours(hours);
+      dailyHours.set(date, hours);
+      const row = input.closest('.day-row');
+      if (row) row.classList.toggle('is-off', hours === 0);
+      updateDailyTotal(currentDates());
       refresh();
     });
   }
@@ -567,27 +774,46 @@
   }
 
   function compute(values) {
-    const days = daysBetween(values.start, values.end);
-    const hours = values.orders / values.ordersPerHour;
-    const basePay = hours * values.baseRate;
-    const total = basePay + values.bonus;
-    const effective = hours > 0 ? total / hours : values.baseRate;
-    const delta = effective - values.baseRate;
+    const dates = dateList(values.start, values.end);
+    const days = dates.length;
+    const requiredHours = values.orders / values.ordersPerHour;
+    const plannedHours = dates.reduce(
+      (sum, date) => sum + (dailyHours.get(date) ?? DEFAULT_DAILY_HOURS),
+      0
+    );
+    const feasible = plannedHours + 1e-9 >= requiredHours;
+    const workedHours = feasible ? requiredHours : plannedHours;
+    const completedOrders = Math.min(values.orders, plannedHours * values.ordersPerHour);
+    const earnedBonus = feasible ? values.bonus : 0;
+    const basePay = workedHours * values.baseRate;
+    const total = basePay + earnedBonus;
+    const effective = workedHours > 0 ? total / workedHours : NaN;
+    const delta = Number.isFinite(effective) ? effective - values.baseRate : 0;
     const deltaPct = values.baseRate > 0 ? (delta / values.baseRate) * 100 : 0;
     const baseShare = total > 0 ? (basePay / total) * 100 : 0;
+    const shortfallHours = Math.max(0, requiredHours - plannedHours);
+    const surplusHours = Math.max(0, plannedHours - requiredHours);
 
     return {
+      dates,
       days,
-      hours,
+      requiredHours,
+      plannedHours,
+      feasible,
+      workedHours,
+      completedOrders,
+      earnedBonus,
       basePay,
       total,
       effective,
       delta,
       deltaPct,
-      hoursPerDay: hours / days,
-      ordersPerDay: values.orders / days,
-      shifts: hours / 8,
       baseShare: Math.min(100, Math.max(0, baseShare)),
+      shortfallHours,
+      surplusHours,
+      extraDaysAtLimit: Math.ceil(shortfallHours / DAILY_LIMIT),
+      plannedPerDay: days > 0 ? plannedHours / days : 0,
+      ordersPerDay: days > 0 ? values.orders / days : 0,
     };
   }
 
@@ -609,14 +835,22 @@
       els.bonusBar.style.width = '0%';
       els.splitBar.setAttribute('aria-label', 'Состав выплаты пока не рассчитан');
       els.rateDelta.hidden = true;
-      setInsight('neutral', getEmptyMessage(values));
+      setInsight({
+        tone: 'neutral',
+        title: 'Проверка графика',
+        badge: '',
+        text: getEmptyMessage(values),
+        barHidden: true,
+      });
       return;
     }
 
-    els.effectiveRate.textContent = formatMoney(result.effective);
+    els.effectiveRate.textContent = Number.isFinite(result.effective)
+      ? formatMoney(result.effective)
+      : '—';
     els.totalPayout.textContent = `${formatMoney(result.total)} ₽`;
     els.basePay.textContent = `${formatMoney(result.basePay)} ₽`;
-    els.bonusPay.textContent = `${formatMoney(values.bonus)} ₽`;
+    els.bonusPay.textContent = `${formatMoney(result.earnedBonus)} ₽`;
 
     const baseWidth = result.baseShare;
     const hasTotal = result.total > 0;
@@ -624,16 +858,19 @@
     els.bonusBar.style.width = hasTotal ? `${100 - baseWidth}%` : '0%';
     els.splitBar.setAttribute(
       'aria-label',
-      `Базовая оплата ${formatMoney(result.basePay)} рублей, бонус ${formatMoney(values.bonus)} рублей`
+      `Базовая оплата ${formatMoney(result.basePay)} рублей, бонус ${formatMoney(result.earnedBonus)} рублей`
     );
 
-    els.hoursTotal.textContent = `${formatHours(result.hours)} ч`;
-    els.hoursPerDay.textContent = `${formatHours(result.hoursPerDay)} ч`;
+    els.hoursTotal.textContent = `${formatHours(result.requiredHours)} ч`;
+    els.hoursPerDay.textContent = `${formatHours(result.plannedPerDay)} ч`;
     els.ordersPerDay.textContent = formatDecimal(result.ordersPerDay);
-    els.shifts.textContent = formatDecimal(result.shifts);
+    els.shifts.textContent = `${formatHours(result.plannedHours)} ч`;
 
     els.rateDelta.hidden = false;
-    if (values.bonus > 0) {
+    if (!result.feasible) {
+      els.rateDelta.dataset.tone = 'neutral';
+      els.rateDelta.textContent = 'Бонус не начислен — цели не хватает';
+    } else if (values.bonus > 0) {
       const percent = values.baseRate > 0 ? ` · +${formatDecimal(result.deltaPct)}%` : '';
       els.rateDelta.dataset.tone = 'positive';
       els.rateDelta.textContent = `+${formatDecimal(result.delta)} ₽/ч${percent}`;
@@ -642,8 +879,57 @@
       els.rateDelta.textContent = 'Базовая ставка без бонуса';
     }
 
-    const insight = getInsight(values, result);
-    setInsight(insight.tone, insight.text);
+    const feasibility = buildFeasibility(values, result);
+    setInsight(feasibility);
+  }
+
+  function buildFeasibility(values, result) {
+    const required = formatHours(result.requiredHours);
+    const planned = formatHours(result.plannedHours);
+    const bonusNote =
+      values.bonus <= 0 ? ' Бонус не указан — считаем только базовую оплату.' : '';
+
+    if (result.plannedHours <= 0) {
+      return {
+        tone: 'danger',
+        title: 'Нет часов в плане',
+        badge: '0 ч',
+        text: 'Укажите, сколько часов сможете работать в каждый день.',
+        fill: 0,
+      };
+    }
+
+    if (result.feasible) {
+      const surplus = result.surplusHours;
+      const tail =
+        surplus > 0.05
+          ? ` Запас ${formatHours(surplus)} ч — можно снизить нагрузку.`
+          : ' План точно закрывает цель.';
+      return {
+        tone: 'success',
+        title: 'Успеваете',
+        badge: surplus > 0.05 ? `+${formatHours(surplus)} ч` : '0 ч',
+        text: `План ${planned} ч, нужно ${required} ч.${tail}${bonusNote}`,
+        fill: 100,
+      };
+    }
+
+    const shortfall = result.shortfallHours;
+    const extraDays = Math.max(1, result.extraDaysAtLimit);
+    const perDay = result.days > 0 ? shortfall / result.days : shortfall;
+    const plannedPerDay = result.days > 0 ? result.plannedHours / result.days : 0;
+    const canRaisePerDay = plannedPerDay + perDay <= DAILY_LIMIT + 0.05;
+    const extraDaysText = `ещё ${extraDays} ${plural(extraDays, ['день', 'дня', 'дней'])} (до 12 ч в день)`;
+    const advice = canRaisePerDay
+      ? ` или +${formatHours(perDay)} ч в день`
+      : '. Добавить часы в текущие дни нельзя — уже достигнут лимит 12 ч';
+    return {
+      tone: 'danger',
+      title: 'Не успеваете',
+      badge: `−${formatHours(shortfall)} ч`,
+      text: `План ${planned} ч, нужно ${required} ч. Не хватает ${formatHours(shortfall)} ч — это ${extraDaysText}${advice}. По плану успеете ${formatDecimal(result.completedOrders)} из ${formatDecimal(values.orders)} заказов.${bonusNote}`,
+      fill: result.requiredHours > 0 ? (result.plannedHours / result.requiredHours) * 100 : 0,
+    };
   }
 
   function getPeriodLabel(values) {
@@ -674,44 +960,109 @@
     return 'Заполните параметры, чтобы увидеть расчёт.';
   }
 
-  function getInsight(values, result) {
-    if (values.bonus <= 0) {
-      return {
-        tone: 'neutral',
-        text: 'Бонус не указан — считаем только базовую оплату.',
-      };
+  function setInsight({ tone, title, badge, text, fill, barHidden }) {
+    els.insight.dataset.tone = tone;
+    els.insightTitle.textContent = title;
+    els.insightBadge.textContent = badge || '';
+    els.insightBadge.hidden = !badge;
+    els.insightText.textContent = text;
+    if (barHidden || !Number.isFinite(fill)) {
+      els.insightBar.hidden = true;
+    } else {
+      els.insightBar.hidden = false;
+      els.insightFill.style.width = `${Math.min(100, Math.max(0, fill))}%`;
     }
-
-    if (result.hoursPerDay > 14) {
-      return {
-        tone: 'danger',
-        text: `Очень плотный график: ${formatHours(result.hoursPerDay)} ч в день. Лучше увеличить срок или снизить цель.`,
-      };
-    }
-
-    if (result.hoursPerDay > 9) {
-      return {
-        tone: 'warning',
-        text: `Плотный график: ${formatHours(result.hoursPerDay)} ч в день без выходных. Заложите запас на медленные дни.`,
-      };
-    }
-
-    if (result.hoursPerDay > 7) {
-      return {
-        tone: 'neutral',
-        text: `В среднем ${formatHours(result.hoursPerDay)} ч в день — с учётом всех дней периода.`,
-      };
-    }
-
-    return {
-      tone: 'success',
-      text: `Комфортный темп: около ${formatHours(result.hoursPerDay)} ч в день. Останется время на отдых.`,
-    };
   }
 
-  function setInsight(tone, text) {
-    els.insight.dataset.tone = tone;
-    els.insightText.textContent = text;
+  function bindShiftsEvents() {
+    if (!els.shiftsData || !els.applyStats) return;
+
+    els.shiftsData.addEventListener('input', () => {
+      renderShiftsStats();
+      saveState(readForm());
+    });
+
+    els.applyStats.addEventListener('click', () => {
+      const stats = parseShiftsStats(els.shiftsData.value);
+      if (!stats || !Number.isFinite(stats.avgEarnings)) return;
+
+      els.baseRate.value = String(Math.round(stats.avgEarnings));
+      if (Number.isFinite(stats.avgOrders)) {
+        els.ordersPerHour.value = String(Math.round(stats.avgOrders * 10) / 10);
+      }
+      refresh();
+      showHint(`Ставка обновлена: ${formatMoney(stats.avgEarnings)} ₽/ч.`);
+    });
+  }
+
+  function renderShiftsStats() {
+    if (!els.shiftsData) return;
+    const stats = parseShiftsStats(els.shiftsData.value);
+
+    if (!stats) {
+      els.shiftsCount.textContent = '0 смен';
+      els.avgEarnings.textContent = '—';
+      els.avgOrders.textContent = '—';
+      els.shiftsTotal.textContent = '—';
+      els.applyStats.disabled = true;
+      els.applyStats.textContent = 'Подставить в расчёт';
+      els.statsHint.textContent = 'Добавьте строки в формате: заработок и часы.';
+      return;
+    }
+
+    els.shiftsCount.textContent = `${stats.count} ${plural(stats.count, ['смена', 'смены', 'смен'])}`;
+    els.avgEarnings.textContent = `${formatMoney(stats.avgEarnings)} ₽/ч`;
+    els.avgOrders.textContent = Number.isFinite(stats.avgOrders)
+      ? `${formatDecimal(stats.avgOrders)} /ч`
+      : '—';
+    els.shiftsTotal.textContent = `${formatMoney(stats.totalEarnings)} ₽ · ${formatHours(stats.totalHours)} ч`;
+    els.applyStats.disabled = !Number.isFinite(stats.avgEarnings);
+    els.applyStats.textContent = Number.isFinite(stats.avgOrders)
+      ? 'Подставить в расчёт'
+      : `Подставить ${formatMoney(stats.avgEarnings)} ₽/ч`;
+    els.statsHint.textContent = Number.isFinite(stats.avgOrders)
+      ? `Средние по ${stats.count} ${plural(stats.count, ['смене', 'сменам', 'сменам'])}. Ставка и заказы в час обновятся в допущениях.`
+      : 'Заказы в час не посчитать: в данных нет количества заказов. Добавьте третьим числом заказы в каждой строке.';
+  }
+
+  function parseShiftsStats(text) {
+    const rows = [];
+    String(text)
+      .split(/\r?\n/)
+      .forEach((line) => {
+        const parts = line.trim().replace(/,/g, '.').split(/\s+/).filter(Boolean);
+        if (parts.length < 2) return;
+
+        const earnings = Number(parts[0]);
+        const hours = Number(parts[1]);
+        const orders = parts.length >= 3 ? Number(parts[2]) : null;
+
+        if (!Number.isFinite(earnings) || earnings < 0) return;
+        if (!Number.isFinite(hours) || hours <= 0) return;
+
+        rows.push({
+          earnings,
+          hours,
+          orders: Number.isFinite(orders) && orders >= 0 ? orders : null,
+        });
+      });
+
+    if (!rows.length) return null;
+
+    const totalEarnings = rows.reduce((sum, row) => sum + row.earnings, 0);
+    const totalHours = rows.reduce((sum, row) => sum + row.hours, 0);
+    const allHaveOrders = rows.every((row) => row.orders !== null);
+    const totalOrders = allHaveOrders
+      ? rows.reduce((sum, row) => sum + row.orders, 0)
+      : NaN;
+
+    return {
+      count: rows.length,
+      totalEarnings,
+      totalHours,
+      avgEarnings: totalHours > 0 ? totalEarnings / totalHours : NaN,
+      avgOrders: allHaveOrders && totalHours > 0 ? totalOrders / totalHours : NaN,
+    };
   }
 
   function scheduleWeather(delay = 450) {

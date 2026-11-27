@@ -71,7 +71,7 @@
     <section class="intro">
       <p class="eyebrow"><span class="eyebrow__dot"></span>Планирование смены</p>
       <h1>Сколько стоит<br><span class="text-gradient">ваш бонус?</span></h1>
-      <p class="intro__lead">Введите цель и срок — покажем, сколько часов придётся работать, сколько выйдет за период и какая получится ставка в час. Внизу — погода на каждый день.</p>
+      <p class="intro__lead">Введите цель и срок — покажем, сколько часов придётся работать, сколько выйдет за период и какая получится ставка в час. Укажите доступные часы по дням — проверим, реально ли успеть. Внизу — погода на каждый день.</p>
     </section>
 
     <div class="workspace">
@@ -127,6 +127,26 @@
               </span>
             </label>
           </div>
+
+          <section class="daily-schedule" aria-labelledby="daily-title">
+            <div class="daily-schedule__head">
+              <div>
+                <h3 id="daily-title">График по дням</h3>
+                <p>Сколько часов сможете работать? Максимум 12 ч в день.</p>
+              </div>
+              <div class="daily-presets" id="daily-presets" role="group" aria-label="Заполнить все дни">
+                <button type="button" data-hours="8">8 ч</button>
+                <button type="button" data-hours="10">10 ч</button>
+                <button type="button" data-hours="12">12 ч</button>
+              </div>
+            </div>
+            <div class="daily-list" id="daily-list"></div>
+            <div class="daily-total">
+              <span>В плане: <strong id="daily-total">—</strong></span>
+              <span>Нужно: <strong id="daily-required">—</strong></span>
+              <span class="daily-total__status" id="daily-status"></span>
+            </div>
+          </section>
 
           <details class="assumptions">
             <summary>
@@ -193,11 +213,11 @@
 
         <div class="stats-grid">
           <div class="stat">
-            <span class="stat__label">Время на бонус</span>
+            <span class="stat__label">Нужно на бонус</span>
             <strong id="hours-total">—</strong>
           </div>
           <div class="stat">
-            <span class="stat__label">В день</span>
+            <span class="stat__label">План в день</span>
             <strong id="hours-per-day">—</strong>
           </div>
           <div class="stat">
@@ -205,19 +225,64 @@
             <strong id="orders-per-day">—</strong>
           </div>
           <div class="stat">
-            <span class="stat__label">Смен по 8 ч</span>
+            <span class="stat__label">В плане</span>
             <strong id="shifts">—</strong>
           </div>
         </div>
 
         <div class="insight" id="insight" data-tone="neutral">
-          <span class="insight__dot" aria-hidden="true"></span>
+          <div class="insight__head">
+            <span class="insight__dot" aria-hidden="true"></span>
+            <strong class="insight__title" id="insight-title">Проверка графика</strong>
+            <span class="insight__badge" id="insight-badge"></span>
+          </div>
+          <div class="insight__bar" id="insight-bar" role="img" aria-label="Выполнение плана" hidden>
+            <span class="insight__fill" id="insight-fill"></span>
+          </div>
           <p id="insight-text">Заполните параметры, чтобы увидеть расчёт.</p>
         </div>
 
-        <p class="result-note">Расчёт предполагает, что бонус будет выполнен полностью. Совет: заложите 5–10% заказов сверх цели, чтобы не сорвать его из-за медленного дня.</p>
+        <p class="result-note">Расчёт учитывает ваш график и лимит 12 ч в день. Если доступных часов меньше, чем нужно для цели, бонус не начисляется — приложение покажет, сколько часов не хватает.</p>
       </aside>
     </div>
+
+    <section class="card shifts-card" aria-labelledby="shifts-title">
+      <div class="card__header">
+        <div>
+          <h2 id="shifts-title">Реальные смены</h2>
+          <p>Средние по вашим данным</p>
+        </div>
+        <span class="badge" id="shifts-count">5 смен</span>
+      </div>
+      <div class="shifts-layout">
+        <div class="field shifts-input">
+          <label class="field__label" for="shifts-data">Заработок и часы</label>
+          <textarea id="shifts-data" rows="6" spellcheck="false" placeholder="338,76 3&#10;708,33 3&#10;2521,14 11&#10;736,89 5&#10;693,87 3">338,76 3
+708,33 3
+2521,14 11
+736,89 5
+693,87 3</textarea>
+        </div>
+        <div class="shifts-summary">
+          <div class="shifts-metrics">
+            <div class="stat">
+              <span class="stat__label">Средний заработок</span>
+              <strong id="avg-earnings">—</strong>
+            </div>
+            <div class="stat">
+              <span class="stat__label">Заказов в час</span>
+              <strong id="avg-orders">—</strong>
+            </div>
+            <div class="stat">
+              <span class="stat__label">Всего</span>
+              <strong id="shifts-total">—</strong>
+            </div>
+          </div>
+          <button class="apply-button" id="apply-stats" type="button">Подставить в расчёт</button>
+          <p class="hint" id="stats-hint">Формат строки: заработок и часы. Третьим числом можно добавить количество заказов.</p>
+        </div>
+      </div>
+    </section>
 
     <section class="weather-section" id="weather" aria-labelledby="weather-title">
       <div class="section-heading">
